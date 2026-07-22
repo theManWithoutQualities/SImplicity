@@ -2,7 +2,20 @@
 
 const { MsEdgeTTS, OUTPUT_FORMAT } = require('msedge-tts');
 
-const DEFAULT_VOICE = 'en-US-AriaNeural';
+// en-US-AriaNeural is advertised by the service but rejected at synthesis
+// time; JennyNeural works reliably.
+const DEFAULT_VOICE = 'en-US-JennyNeural';
+
+// Used automatically when the text contains Cyrillic characters.
+// (ru-RU-DariyaNeural and ru-RU-DmitryNeural are rejected at synthesis time.)
+const RUSSIAN_VOICE = 'ru-RU-SvetlanaNeural';
+
+const CYRILLIC = /[Ѐ-ӿ]/;
+
+/** Pick a voice for the text: Russian voice for Cyrillic, fallback otherwise. */
+function voiceForText(text, fallback = DEFAULT_VOICE, russian = RUSSIAN_VOICE) {
+  return CYRILLIC.test(text) ? russian : fallback;
+}
 
 // The SSML is built by string interpolation, so user text must be XML-escaped.
 const escapeXml = (s) => s
@@ -80,4 +93,4 @@ async function synthesizeSpeech(text, voice = DEFAULT_VOICE) {
   throw new Error(`TTS failed with voice "${voice}": ${lastErr.message}.${hint}`);
 }
 
-module.exports = { synthesizeSpeech, listVoiceNames, DEFAULT_VOICE };
+module.exports = { synthesizeSpeech, listVoiceNames, voiceForText, DEFAULT_VOICE, RUSSIAN_VOICE };

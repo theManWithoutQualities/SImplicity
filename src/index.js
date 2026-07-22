@@ -5,12 +5,13 @@ require('dotenv').config({ quiet: true });
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
-const { synthesizeSpeech, DEFAULT_VOICE } = require('./tts');
+const { synthesizeSpeech, voiceForText, DEFAULT_VOICE, RUSSIAN_VOICE } = require('./tts');
 const { JitsiTTSBot } = require('./bot');
 
 const PORT = Number(process.env.PORT || 3000);
 const DOMAIN = process.env.JITSI_DOMAIN || 'meet.jit.si';
 const VOICE = process.env.TTS_VOICE || DEFAULT_VOICE;
+const VOICE_RU = process.env.TTS_VOICE_RU || RUSSIAN_VOICE;
 const INDEX_HTML = path.join(__dirname, '..', 'public', 'index.html');
 
 // Session state shown by the UI indicator. One conference at a time:
@@ -106,7 +107,7 @@ function speak(text) {
     return Promise.reject(new Error('Not connected to a room'));
   }
   session.speakQueue = session.speakQueue.then(async () => {
-    const audio = await synthesizeSpeech(text, VOICE);
+    const audio = await synthesizeSpeech(text, voiceForText(text, VOICE, VOICE_RU));
     await bot.speak(audio);
   });
   return session.speakQueue;

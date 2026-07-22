@@ -69,8 +69,12 @@ see `.env.example`.
   their guest domain, or provide a JWT via `JITSI_TOKEN` (then no guest domain
   is needed).
 - Custom/self-hosted deployments with a non-standard MUC domain: set `JITSI_MUC`.
-- Voices: any Edge neural voice, e.g. `en-US-AriaNeural`, `en-GB-SoniaNeural`,
+- Voices: any Edge neural voice, e.g. `en-US-JennyNeural`, `en-GB-SoniaNeural`,
   `de-DE-ConradNeural`, `fr-FR-DeniseNeural`. Set `TTS_VOICE` in `.env`.
+  Note that some advertised voices (e.g. `en-US-AriaNeural`) are rejected by
+  the service at synthesis time.
+- Text containing Cyrillic characters is spoken with a Russian voice
+  (`ru-RU-SvetlanaNeural`, override with `TTS_VOICE_RU`) instead of `TTS_VOICE`.
 - The bot is audio-only; video constraints are rejected by design.
 
 ## Project layout
