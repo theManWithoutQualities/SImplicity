@@ -1,0 +1,19 @@
+{
+  "name": "simplicity",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SImplicity — web app that joins a Jitsi room and speaks your text into it via TTS",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "sh start.sh",
+    "cli": "node src/cli.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "msedge-tts": "^2.0.7",
+    "puppeteer": "^25.3.0"
+  }
+}

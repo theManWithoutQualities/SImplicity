@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SImplicity</title>
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #0f1115;
+    color: #e6e6e6;
+  }
+  .card {
+    width: min(440px, 92vw);
+    background: #1a1d24;
+    border: 1px solid #2a2f3a;
+    border-radius: 14px;
+    padding: 28px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.4);
+  }
+  h1 { margin: 0 0 4px; font-size: 26px; letter-spacing: .5px; }
+  .subtitle { margin: 0 0 22px; font-size: 13px; color: #8a93a5; }
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: #12151b;
+    border: 1px solid #2a2f3a;
+    margin-bottom: 18px;
+    font-size: 14px;
+  }
+  .dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: #6b7280;
+    flex: none;
+  }
+  .dot.connecting, .dot.lobby { background: #f5b942; animation: pulse 1.2s infinite; }
+  .dot.connected { background: #34c759; }
+  .dot.error { background: #ff4d4f; }
+  @keyframes pulse { 50% { opacity: .35; } }
+  #statusDetail { color: #8a93a5; font-size: 12px; margin-left: auto; text-align: right; overflow: hidden; text-overflow: ellipsis; }
+  label { display: block; font-size: 13px; color: #8a93a5; margin: 14px 0 6px; }
+  .row { display: flex; gap: 8px; }
+  input, textarea {
+    flex: 1;
+    min-width: 0;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid #2a2f3a;
+    background: #12151b;
+    color: #e6e6e6;
+    font-size: 14px;
+    outline: none;
+  }
+  input:focus, textarea:focus { border-color: #4a6fa5; }
+  button {
+    padding: 10px 18px;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    background: #4a6fa5;
+    color: #fff;
+    white-space: nowrap;
+  }
+  button:hover:not(:disabled) { background: #5a7fb5; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.danger { background: #5c2f33; }
+  button.danger:hover:not(:disabled) { background: #73393e; }
+  hr { border: none; border-top: 1px solid #2a2f3a; margin: 22px 0 4px; }
+  #speakSection { transition: opacity .2s; }
+  #speakSection.disabled { opacity: .45; }
+  #message { min-height: 18px; font-size: 13px; margin-top: 14px; color: #8a93a5; }
+  #message.error { color: #ff7a7c; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>SImplicity</h1>
+    <p class="subtitle">Speak text into a Jitsi Meet room</p>
+
+    <div class="status">
+      <span id="dot" class="dot"></span>
+      <span id="statusText">Disconnected</span>
+      <span id="statusDetail"></span>
+    </div>
+
+    <label for="room">Jitsi room name</label>
+    <div class="row">
+      <input id="room" type="text" placeholder="my-room" autocomplete="off">
+      <button id="connectBtn">Connect</button>
+    </div>
+
+    <hr>
+
+    <div id="speakSection" class="disabled">
+      <label for="text">Text to speak</label>
+      <div class="row">
+        <input id="text" type="text" placeholder="Type something to say…" autocomplete="off">
+        <button id="sendBtn" disabled>Send</button>
+      </div>
+    </div>
+
+    <div id="message"></div>
+  </div>
+
+<script>
+const dot = document.getElementById('dot');
+const statusText = document.getElementById('statusText');
+const statusDetail = document.getElementById('statusDetail');
+const roomInput = document.getElementById('room');
+const connectBtn = document.getElementById('connectBtn');
+const textInput = document.getElementById('text');
+const sendBtn = document.getElementById('sendBtn');
+const speakSection = document.getElementById('speakSection');
+const message = document.getElementById('message');
+
+const STATE_LABELS = {
+  disconnected: 'Disconnected',
+  connecting: 'Connecting…',
+  lobby: 'Waiting in lobby…',
+  connected: 'Connected',
+  error: 'Connection error',
+};
+
+let currentState = 'disconnected';
+let busy = false;
+
+function setMessage(text, isError) {
+  message.textContent = text || '';
+  message.className = isError ? 'error' : '';
+}
+
+function render(s) {
+  currentState = s.state;
+  dot.className = 'dot ' + s.state;
+  statusText.textContent = STATE_LABELS[s.state] || s.state;
+  statusDetail.textContent = s.room ? `https://${s.domain}/${s.room}` : '';
+  const active = s.state === 'connected';
+  const inProgress = s.state === 'connecting' || s.state === 'lobby';
+  speakSection.className = active ? '' : 'disabled';
+  sendBtn.disabled = !active || busy;
+  textInput.disabled = !active;
+  roomInput.disabled = active || inProgress;
+  connectBtn.textContent = (active || inProgress) ? 'Disconnect' : 'Connect';
+  if (s.state === 'error' && s.error) setMessage(s.error, true);
+}
+
+async function api(path, body) {
+  const res = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body || {}),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+  return data;
+}
+
+connectBtn.addEventListener('click', async () => {
+  setMessage('');
+  if (currentState === 'connected' || currentState === 'connecting' || currentState === 'lobby') {
+    connectBtn.disabled = true;
+    try { render(await api('/api/disconnect')); }
+    catch (err) { setMessage(err.message, true); }
+    connectBtn.disabled = false;
+    return;
+  }
+  const room = roomInput.value.trim();
+  if (!room) { setMessage('Enter a room name first.', true); return; }
+  connectBtn.disabled = true;
+  dot.className = 'dot connecting';
+  statusText.textContent = STATE_LABELS.connecting;
+  try {
+    render(await api('/api/connect', { room }));
+  } catch (err) {
+    setMessage(err.message, true);
+    poll();
+  }
+  connectBtn.disabled = false;
+});
+
+async function send() {
+  const text = textInput.value.trim();
+  if (!text || sendBtn.disabled) return;
+  setMessage('');
+  busy = true;
+  sendBtn.disabled = true;
+  sendBtn.textContent = 'Speaking…';
+  try {
+    await api('/api/speak', { text });
+    textInput.value = '';
+    setMessage('Spoken to the room.');
+  } catch (err) {
+    setMessage(err.message, true);
+  }
+  busy = false;
+  sendBtn.textContent = 'Send';
+  sendBtn.disabled = currentState !== 'connected';
+  textInput.focus();
+}
+
+sendBtn.addEventListener('click', send);
+textInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') send(); });
+roomInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') connectBtn.click(); });
+
+async function poll() {
+  try {
+    const res = await fetch('/api/state');
+    render(await res.json());
+  } catch (_) { /* server unreachable; keep last known state */ }
+}
+
+poll().then(() => {
+  // Prefill the room input from server defaults (JITSI_ROOM) once.
+  fetch('/api/state').then((r) => r.json()).then((s) => {
+    if (s.defaultRoom && !roomInput.value) roomInput.value = s.defaultRoom;
+  });
+});
+setInterval(poll, 1500);
+</script>
+</body>
+</html>
