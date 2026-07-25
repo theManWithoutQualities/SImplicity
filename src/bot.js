@@ -335,4 +335,4 @@ class JitsiTTSBot {
   }
 }
 
-module.exports = { JitsiTTSBot };
+module.exports = { JitsiTTSBot, resolveExecutablePath };

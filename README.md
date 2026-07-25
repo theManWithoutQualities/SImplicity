@@ -1,20 +1,24 @@
 # SImplicity
 
-A small web app that joins a [Jitsi Meet](https://jitsi.org/) room as a bot and
-speaks any text you type into the conference, using text-to-speech.
+A small web app that joins a [Jitsi Meet](https://jitsi.org/) or
+[Yandex Telemost](https://telemost.yandex.ru/) room as a bot and speaks any
+text you type into the conference, using text-to-speech.
 
 The web interface lets you:
 
-- enter a Jitsi room name and connect/disconnect with one button,
+- enter a Jitsi room name **or a Telemost link** and connect/disconnect with
+  one button,
 - see the current connection state (disconnected / connecting / waiting in
   lobby / connected / error) on a live indicator,
 - type text and send it — the app converts it to speech and publishes the
-  audio into the room.
+  audio into the room. Text with Cyrillic characters is spoken with a Russian
+  voice automatically.
 
 ## How it works
 
-lib-jitsi-meet needs a real browser environment (WebRTC, WebAudio, DOM), so the
-app runs it inside headless Chrome, driven from Node.js via Puppeteer:
+**Jitsi**: lib-jitsi-meet needs a real browser environment (WebRTC, WebAudio,
+DOM), so the app runs it inside headless Chrome, driven from Node.js via
+Puppeteer:
 
 ```
 web UI → Node server → msedge-tts (MP3) → WebAudio buffer → fake microphone → lib-jitsi-meet → conference
@@ -25,7 +29,18 @@ web UI → Node server → msedge-tts (MP3) → WebAudio buffer → fake microph
   matches the server.
 - The bot's "microphone" is a `MediaStreamAudioDestinationNode` that stays
   silent until synthesized audio is played into it.
-- TTS uses the free Microsoft Edge Read Aloud API.
+
+**Telemost**: modern Telemost is not Jitsi-based (it migrated to a proprietary
+platform), so instead of a protocol client the bot drives the real Telemost
+web UI in headless Chrome: it opens the room link, clicks through the
+"Continue in browser" interstitial and the pre-join screen, and replaces the
+microphone with the same WebAudio fake mic via a `getUserMedia` override
+installed before the site's scripts load. Room creation requires a Yandex
+account, so create the room yourself and paste the link
+(`https://telemost.yandex.ru/j/<id>`, a `/j/<id>` path, or a bare numeric id
+all work).
+
+TTS uses the free Microsoft Edge Read Aloud API.
 
 ## Setup
 
@@ -75,6 +90,10 @@ see `.env.example`.
   the service at synthesis time.
 - Text containing Cyrillic characters is spoken with a Russian voice
   (`ru-RU-SvetlanaNeural`, override with `TTS_VOICE_RU`) instead of `TTS_VOICE`.
+- **Telemost caveats**: the connector automates Telemost's web UI, so it can
+  break when Yandex changes the page — if joining stops working, run
+  `node scripts/debug-telemost.js <room-link>` to see what the bot sees.
+  Joining via a guest link needs no login; creating rooms does.
 - The bot is audio-only; video constraints are rejected by design.
 
 ## Project layout
@@ -82,9 +101,14 @@ see `.env.example`.
 - `src/index.js` — web server (`node:http`): serves the UI and the JSON API
   (`/api/connect`, `/api/disconnect`, `/api/speak`, `/api/state`)
 - `public/index.html` — the web interface (vanilla JS, no build step)
-- `src/bot.js` — Puppeteer + lib-jitsi-meet glue (`JitsiTTSBot` class, in-page API)
-- `src/tts.js` — text → MP3 buffer via `msedge-tts`
+- `src/bot.js` — Jitsi connector: Puppeteer + lib-jitsi-meet glue
+- `src/telemost.js` — Telemost connector: headless Chrome drives the Telemost
+  web UI with a fake microphone
+- `src/tts.js` — text → MP3 buffer via `msedge-tts` (auto Russian voice for
+  Cyrillic text)
 - `src/cli.js` — the original terminal interface (`npm run cli -- --help`)
+- `scripts/debug-telemost.js` — manual Telemost join with probe logging and
+  screenshots, for when Yandex changes their UI
 
 To use the bot as a library:
 

@@ -96,9 +96,14 @@
       <span id="statusDetail"></span>
     </div>
 
-    <label for="room">Jitsi room name</label>
+    <label for="room">Jitsi room name or Telemost link</label>
     <div class="row">
-      <input id="room" type="text" placeholder="my-room" autocomplete="off">
+      <input id="room" type="text" placeholder="my-room or https://telemost.yandex.ru/j/…" autocomplete="off">
+    </div>
+
+    <label for="botName">Bot display name</label>
+    <div class="row">
+      <input id="botName" type="text" placeholder="SImplicity" autocomplete="off">
       <button id="connectBtn">Connect</button>
     </div>
 
@@ -120,6 +125,7 @@ const dot = document.getElementById('dot');
 const statusText = document.getElementById('statusText');
 const statusDetail = document.getElementById('statusDetail');
 const roomInput = document.getElementById('room');
+const botNameInput = document.getElementById('botName');
 const connectBtn = document.getElementById('connectBtn');
 const textInput = document.getElementById('text');
 const sendBtn = document.getElementById('sendBtn');
@@ -146,13 +152,14 @@ function render(s) {
   currentState = s.state;
   dot.className = 'dot ' + s.state;
   statusText.textContent = STATE_LABELS[s.state] || s.state;
-  statusDetail.textContent = s.room ? `https://${s.domain}/${s.room}` : '';
+  statusDetail.textContent = s.roomUrl || '';
   const active = s.state === 'connected';
   const inProgress = s.state === 'connecting' || s.state === 'lobby';
   speakSection.className = active ? '' : 'disabled';
   sendBtn.disabled = !active || busy;
   textInput.disabled = !active;
   roomInput.disabled = active || inProgress;
+  botNameInput.disabled = active || inProgress;
   connectBtn.textContent = (active || inProgress) ? 'Disconnect' : 'Connect';
   if (s.state === 'error' && s.error) setMessage(s.error, true);
 }
@@ -183,7 +190,7 @@ connectBtn.addEventListener('click', async () => {
   dot.className = 'dot connecting';
   statusText.textContent = STATE_LABELS.connecting;
   try {
-    render(await api('/api/connect', { room }));
+    render(await api('/api/connect', { room, name: botNameInput.value.trim() }));
   } catch (err) {
     setMessage(err.message, true);
     poll();
@@ -223,9 +230,10 @@ async function poll() {
 }
 
 poll().then(() => {
-  // Prefill the room input from server defaults (JITSI_ROOM) once.
+  // Prefill inputs from server defaults once.
   fetch('/api/state').then((r) => r.json()).then((s) => {
     if (s.defaultRoom && !roomInput.value) roomInput.value = s.defaultRoom;
+    if (s.defaultName && !botNameInput.value) botNameInput.value = s.defaultName;
   });
 });
 setInterval(poll, 1500);
